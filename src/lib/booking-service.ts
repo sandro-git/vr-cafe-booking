@@ -1,5 +1,3 @@
-import { db, Booking } from '../../db/config';
-import { eq } from 'astro:db';
 import { nanoid } from 'nanoid';
 
 export interface BookingData {
@@ -10,38 +8,31 @@ export interface BookingData {
   numberOfPeople: number;
 }
 
-export async function createBooking(data: BookingData) {
-  try {
-    const booking = await db.insert(Booking).values({
-      id: nanoid(),
-      ...data,
-      date: new Date(data.date),
-      createdAt: new Date(),
-      status: 'confirmed'
-    });
-    return booking;
-  } catch (error) {
-    console.error('Error creating booking:', error);
-    throw error;
-  }
+interface Booking extends BookingData {
+  id: string;
+  createdAt: Date;
+  status: 'confirmed' | 'cancelled';
 }
 
-export async function getBooking(id: string) {
-  try {
-    const booking = await db.select().from(Booking).where(eq(Booking.id, id));
-    return booking[0];
-  } catch (error) {
-    console.error('Error getting booking:', error);
-    throw error;
-  }
+// In-memory storage for bookings
+const bookings = new Map<string, Booking>();
+
+export async function createBooking(data: BookingData): Promise<Booking> {
+  const booking: Booking = {
+    ...data,
+    id: nanoid(),
+    createdAt: new Date(),
+    status: 'confirmed'
+  };
+  
+  bookings.set(booking.id, booking);
+  return booking;
 }
 
-export async function getBookingsByEmail(email: string) {
-  try {
-    const bookings = await db.select().from(Booking).where(eq(Booking.email, email));
-    return bookings;
-  } catch (error) {
-    console.error('Error getting bookings by email:', error);
-    throw error;
-  }
+export async function getBooking(id: string): Promise<Booking | null> {
+  return bookings.get(id) || null;
+}
+
+export async function getBookingsByEmail(email: string): Promise<Booking[]> {
+  return Array.from(bookings.values()).filter(booking => booking.email === email);
 }
